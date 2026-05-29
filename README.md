@@ -235,6 +235,35 @@ Tree Broadcast Verification: CORRECT
 
 ---
 
+## Troubleshooting & FAQs
+
+### 1. ⚠️ Can I just click the "Run/Play" button in VS Code?
+**No.** Default C++ runners in VS Code (like the Code Runner extension) compile programs without linking the MS-MPI SDK libraries (`msmpi.lib` and headers `mpi.h`). More importantly, they run programs as standard sequential applications. To run a parallel MPI program, it **must** be launched via `mpiexec`. Always use the terminal compilation and run commands specified in the **Quick Start** section.
+
+### 2. ❌ Error: `mpi.h: No such file or directory` or `msmpi.lib` not found
+This happens if the compiler cannot find the MS-MPI SDK headers or library files.
+- **Fix:** Double check that you installed the **MS-MPI SDK** (`msmpisdk.msi`) and not just the runtime.
+- **Fix:** If you installed MS-MPI to a custom directory, update the paths in the `-I` (Include) and library path arguments in your `g++` compilation command:
+  ```powershell
+  g++ -O2 -o tree_collectives.exe tree_collectives.cpp -I"<Your-Custom-Path>\Include" "<Your-Custom-Path>\Lib\x64\msmpi.lib"
+  ```
+
+### 3. ❌ Error: `g++` or `mpiexec` is not recognized
+This means the folder containing the executable is not in your system's Environment `PATH`.
+- **For `g++`:** Ensure your MinGW/WinLibs `bin` directory is added to your environment `PATH` (e.g., `C:\winlibs-...\bin`). Restart your terminal or VS Code after modifying environment variables.
+- **For `mpiexec`:** We bypass this issue in the **Quick Start** guide by invoking the absolute path directly: `& "C:\Program Files\Microsoft MPI\Bin\mpiexec.exe"`. If you prefer to type just `mpiexec`, add `"C:\Program Files\Microsoft MPI\Bin"` to your system `PATH`.
+
+### 4. 🛡️ Windows Defender Firewall alert popped up
+When you run `mpiexec` for the first time, Windows Defender Firewall may ask for permission.
+- **What to do:** Allow it. MPI relies on TCP/IP network sockets for processes to communicate with each other, even when they are running on the same local computer. If you block it, MPI processes will not be able to exchange messages.
+
+### 5. ❌ Error: `P must be >= 8` (or similar constraints)
+The programs are specifically optimized to demonstrate distributed parallelism and deadlock avoidance at scale.
+- **Fix:** Ensure you pass `-n 8` (or greater) to `mpiexec` when launching `tree_collectives.exe` and `deadlock_avoidance.exe`. Running them with fewer processes will trigger a validation safeguard and abort execution.
+
+---
+
 ## License
 
 This project is open source and available for educational and research purposes.
+
