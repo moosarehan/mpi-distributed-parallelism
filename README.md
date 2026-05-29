@@ -40,91 +40,148 @@ Implements a **master-worker priority queue** where multiple workers send tasks 
 
 ---
 
-## Prerequisites
+## Quick Start (Windows)
 
-You need two things installed on your system:
+> This is a step-by-step guide to get the programs running on Windows using VS Code's integrated terminal (PowerShell).
 
-1. **An MPI Implementation**
-   - **Windows:** [Microsoft MPI (MS-MPI)](https://learn.microsoft.com/en-us/message-passing-interface/microsoft-mpi) — install both the runtime and the SDK
-   - **Linux:** OpenMPI (`sudo apt install openmpi-bin libopenmpi-dev`) or MPICH (`sudo apt install mpich`)
-   - **macOS:** OpenMPI via Homebrew (`brew install open-mpi`)
+### Step 1: Install MS-MPI (Two Separate Installers)
 
-2. **A C++ Compiler**
-   - `g++` (GCC), `clang++`, or MSVC with MPI support
-   - The compiler must be able to locate MPI headers and libraries
+Download **both** of the following from the [MS-MPI releases page](https://github.com/microsoft/Microsoft-MPI/releases):
+
+| Installer | What it does | File |
+|-----------|-------------|------|
+| **MS-MPI Runtime** | Provides `mpiexec.exe` to launch parallel processes | `msmpisetup.exe` |
+| **MS-MPI SDK** | Provides headers (`mpi.h`) and libraries (`msmpi.lib`) needed to compile MPI programs | `msmpisdk.msi` |
+
+> ⚠️ **You must install both.** The runtime alone lets you run MPI programs but not compile them. The SDK alone lets you compile but not run.
+
+After installation, verify by opening a **new** PowerShell terminal and running:
+
+```powershell
+# This should print the MS-MPI version (e.g., 10.1.3)
+& "C:\Program Files\Microsoft MPI\Bin\mpiexec.exe" --version
+```
+
+### Step 2: Install a C++ Compiler
+
+You need `g++` (GCC). If you don't have it, install **MinGW-w64** via [WinLibs](https://winlibs.com/) or through `winget`:
+
+```powershell
+winget install BrechtSanders.WinLibs.POSIX.UCRT
+```
+
+Verify it works:
+
+```powershell
+g++ --version
+```
+
+> If `g++` is not recognized, you need to add its `bin` folder to your system PATH. See [this guide](https://www.architectryan.com/2018/03/17/add-to-the-windows-path-environment-variable/).
+
+### Step 3: Clone the Repository
+
+Open VS Code, press `` Ctrl+` `` to open the integrated terminal, then run:
+
+```powershell
+git clone https://github.com/moosarehan/mpi-distributed-parallelism.git
+cd mpi-distributed-parallelism
+```
+
+### Step 4: Compile
+
+Run these commands in the VS Code terminal (PowerShell). The default MS-MPI SDK install paths are used below — adjust if yours differ:
+
+```powershell
+g++ -O2 -o tree_collectives.exe tree_collectives.cpp -I"C:\Program Files (x86)\Microsoft SDKs\MPI\Include" "C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64\msmpi.lib"
+
+g++ -O2 -o deadlock_avoidance.exe deadlock_avoidance.cpp -I"C:\Program Files (x86)\Microsoft SDKs\MPI\Include" "C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64\msmpi.lib"
+
+g++ -O2 -o dist_priority_queue.exe dist_priority_queue.cpp -I"C:\Program Files (x86)\Microsoft SDKs\MPI\Include" "C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64\msmpi.lib"
+```
+
+### Step 5: Run
+
+```powershell
+# Tree-Based Collectives (8 processes, binary tree, root=0, array size 10000)
+& "C:\Program Files\Microsoft MPI\Bin\mpiexec.exe" -n 8 ./tree_collectives.exe 2 0 10000
+
+# Deadlock-Avoiding Message Exchange (8 processes)
+& "C:\Program Files\Microsoft MPI\Bin\mpiexec.exe" -n 8 ./deadlock_avoidance.exe
+
+# Distributed Priority Queue (8 processes, 1000 tasks per worker)
+& "C:\Program Files\Microsoft MPI\Bin\mpiexec.exe" -n 8 ./dist_priority_queue.exe 1000
+```
+
+> 💡 **Why the full path for `mpiexec`?** On Windows, MS-MPI may not add itself to your system PATH automatically. Using the full path `"C:\Program Files\Microsoft MPI\Bin\mpiexec.exe"` guarantees it works regardless of your PATH configuration. The `&` at the start is PowerShell syntax for running executables with spaces in the path.
 
 ---
 
-## Compilation
+## Quick Start (Linux / macOS)
 
-### Linux / macOS (using MPI compiler wrapper)
+### Install MPI
 
 ```bash
+# Ubuntu / Debian
+sudo apt install openmpi-bin libopenmpi-dev g++
+
+# macOS (Homebrew)
+brew install open-mpi gcc
+```
+
+### Clone, Compile, and Run
+
+```bash
+git clone https://github.com/moosarehan/mpi-distributed-parallelism.git
+cd mpi-distributed-parallelism
+
+# Compile
 mpicxx -O2 -o tree_collectives tree_collectives.cpp
 mpicxx -O2 -o deadlock_avoidance deadlock_avoidance.cpp
 mpicxx -O2 -o dist_priority_queue dist_priority_queue.cpp
+
+# Run
+mpiexec -n 8 ./tree_collectives 2 0 10000
+mpiexec -n 8 ./deadlock_avoidance
+mpiexec -n 8 ./dist_priority_queue 1000
 ```
-
-### Windows (using g++ with MS-MPI)
-
-```powershell
-g++ -O2 -o tree_collectives.exe tree_collectives.cpp -I"<MPI_SDK_Include_Path>" "<MPI_SDK_Lib_Path>\msmpi.lib"
-g++ -O2 -o deadlock_avoidance.exe deadlock_avoidance.cpp -I"<MPI_SDK_Include_Path>" "<MPI_SDK_Lib_Path>\msmpi.lib"
-g++ -O2 -o dist_priority_queue.exe dist_priority_queue.cpp -I"<MPI_SDK_Include_Path>" "<MPI_SDK_Lib_Path>\msmpi.lib"
-```
-
-> **Note:** Replace `<MPI_SDK_Include_Path>` and `<MPI_SDK_Lib_Path>` with your actual MS-MPI SDK paths. Typical defaults:
-> - Include: `C:\Program Files (x86)\Microsoft SDKs\MPI\Include`
-> - Lib: `C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64`
 
 ---
 
-## Usage
+## Command-Line Arguments
 
 ### Tree-Based Collectives
 
-```bash
-mpiexec -n <num_processes> ./tree_collectives <fan_out> <root_rank> <array_size>
+```
+mpiexec -n <P> ./tree_collectives <fan_out> <root_rank> <array_size>
 ```
 
-| Argument | Description | Example |
-|----------|-------------|---------|
-| `num_processes` | Total MPI processes (≥ 8) | `8` |
-| `fan_out` | Tree branching factor (≥ 2) | `2` |
-| `root_rank` | Root process rank | `0` |
-| `array_size` | Size of the data array | `10000` |
-
-```bash
-# Example: 8 processes, binary tree, root=0, array of 10000 doubles
-mpiexec -n 8 ./tree_collectives 2 0 10000
-```
-
-### Deadlock-Avoiding Message Exchange
-
-```bash
-mpiexec -n <num_processes> ./deadlock_avoidance
-```
-
-```bash
-# Example: 8 processes performing pairwise deadlock-free exchange
-mpiexec -n 8 ./deadlock_avoidance
-```
+| Argument | Description | Constraints | Example |
+|----------|-------------|-------------|---------|
+| `P` | Number of MPI processes | ≥ 8 | `8` |
+| `fan_out` | Tree branching factor | ≥ 2 | `2` |
+| `root_rank` | Root process rank | 0 ≤ root < P | `0` |
+| `array_size` | Elements in the data array | > 0 | `10000` |
 
 ### Distributed Priority Queue
 
-```bash
-mpiexec -n <num_processes> ./dist_priority_queue <tasks_per_worker>
+```
+mpiexec -n <P> ./dist_priority_queue <tasks_per_worker>
 ```
 
-| Argument | Description | Example |
-|----------|-------------|---------|
-| `num_processes` | Total MPI processes (workers + 1 root) | `8` |
-| `tasks_per_worker` | Number of tasks each worker sends | `1000` |
+| Argument | Description | Constraints | Example |
+|----------|-------------|-------------|---------|
+| `P` | Number of MPI processes | ≥ 2 (1 root + workers) | `8` |
+| `tasks_per_worker` | Tasks each worker sends to root | Rounded down to multiple of 5 | `1000` |
 
-```bash
-# Example: 7 workers each sending 1000 tasks to root
-mpiexec -n 8 ./dist_priority_queue 1000
+### Deadlock-Avoiding Message Exchange
+
 ```
+mpiexec -n <P> ./deadlock_avoidance
+```
+
+| Argument | Description | Constraints | Example |
+|----------|-------------|-------------|---------|
+| `P` | Number of MPI processes | ≥ 8 | `8` |
 
 ---
 
@@ -147,6 +204,20 @@ Tree Broadcast Verification: CORRECT
 |  Broadcast              |     0.009185 |   0.021702 |  0.42x |
 |  Reduction (Sum)        |     0.020219 |   0.018968 |  1.07x |
 +-------------------------+--------------+------------+--------+
+```
+
+### Deadlock-Avoiding Message Exchange
+```
++-------------------------------------------------------+
+|       MPI Deadlock-Avoiding Message Exchange          |
++-------------------------------------------------------+
+| Method             | Execution Time (s)               |
++--------------------+----------------------------------+
+| Pure Blocking      |   0.002622                       |
+| Handshake-Based    |   0.022754                       |
++--------------------+----------------------------------+
+| Result: DEADLOCK-FREE COMPLETION                      |
++-------------------------------------------------------+
 ```
 
 ### Distributed Priority Queue
